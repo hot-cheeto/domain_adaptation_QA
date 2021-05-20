@@ -3,7 +3,7 @@
 #================================================
 # Don't push data or outputs up
 data/*
-!data/sanity_dataset
+!data/.empty
 
 output/*
 !output/.empty
