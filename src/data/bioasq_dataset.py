@@ -11,7 +11,7 @@ from tqdm import tqdm_notebook
 
 class BioASQDataset(Dataset):
 
-    def __init__(self, dataset_type, notebook = False):
+    def __init__(self, dataset_type, tokenizer, notebook = False):
 
         self.data_path = utils.path_exists(os.path.join(utils.data_path, 'BioASQ'))
         self.dataset_type = dataset_type 
@@ -19,6 +19,7 @@ class BioASQDataset(Dataset):
 
         self.data = self.load_data()
         self.ids = list(self.data.keys())
+        self.tokenizer = tokenizer
 
 
     def load_data(self):
@@ -67,8 +68,10 @@ class BioASQDataset(Dataset):
         qa_sample = self.data[self.ids[index]]
 
         question, answers, context = qa_sample['question'], qa_sample['answers'], qa_sample['context']
+        input_encoded = self.tokenizer(question, context)
 
-        return question, answers, context
+
+        return input_encoded, question, answers, context
 
 
 
