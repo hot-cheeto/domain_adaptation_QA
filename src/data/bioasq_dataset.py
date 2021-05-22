@@ -15,6 +15,7 @@ class BioASQDataset(Dataset):
 
         self.data_path = utils.path_exists(os.path.join(utils.data_path, 'BioASQ'))
         self.dataset_type = dataset_type 
+        self.use_test_dataset = use_test_dataset
         self.notebook = notebook
 
         self.data = self.load_data()
@@ -25,7 +26,6 @@ class BioASQDataset(Dataset):
     def load_data(self):
 
         files = list(glob.glob(os.path.join(self.data_path, 'BioASQ-{}-*.json'.format(self.dataset_type))))
-        # import pdb; pdb.set_trace()
 
         golden_files = [] if self.dataset_type == 'train' else {f.split('/')[-1].split('.')[0].split('_')[0].lower() : 
                         f for f in glob.glob(os.path.join(self.data_path, '*_golden.json'))}
@@ -60,7 +60,12 @@ class BioASQDataset(Dataset):
 
 
     def __len__(self):
+
         return len(self.ids)
+
+
+    def find_answer_idx(self, answer_text, context):
+        pass
 
 
     def __getitem__(self, index):
@@ -68,10 +73,18 @@ class BioASQDataset(Dataset):
         qa_sample = self.data[self.ids[index]]
 
         question, answers, context = qa_sample['question'], qa_sample['answers'], qa_sample['context']
+
+        if self.dataset_type == 'train':
+            answer_idx = answers[0]['answer_start']
+            answer_text = answers[0]['text']
+        else:
+            answer_text = answers 
+            answer_idx = context.index(answer_text) if answer_text in context else -1
+
         input_encoded = self.tokenizer(question, context)
 
 
-        return input_encoded, question, answers, context
+        return input_encoded, index, answer_idx, answer_text
 
 
 
