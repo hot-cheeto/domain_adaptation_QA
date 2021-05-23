@@ -133,14 +133,13 @@ class LightningTrainer(pt.LightningModule):
     def test_step(self, batch, batch_idx):
 
         encoded_inputs, idx, answer_idx, answer_text = batch
-        loss, start_scores, end_scores = self._model_forward(batch)
+        start_scores, end_scores = self._model_forward(batch, return_loss = False)
 
         max_start_scores = torch.argmax(start_scores, dim = 1)
         max_end_scores = torch.argmax(end_scores, dim = 1)
         input_ids = encoded_inputs['input_ids']
 
-        self.log('test_loss', loss.item())
-        return_dict = {'test_loss': loss.item()}
+        return_dict = {}
 
         return_dict['gt_answer_span'] = [tuple(-1, -1) if idx < 0  else tuple(idx, idx + len(t) + 1) for idx, t in zip(answer_idx, answer_text)]
         return_dict['gt_answer_text'] = answer_text
@@ -204,9 +203,6 @@ class LightningTrainer(pt.LightningModule):
 
              
     def test_epoch_end(self, outputs):
-
-        avg_loss = torch.stack([x['test_loss'] for out in outputs for x in out]).mean()
-        self.log('test_loss', avg_loss)
 
         all_gt_text = [x['gt_answer_text'] for out in outputs for x in out]
         all_pred_text = [x['pred_answer_text'] for out in outputs for x in out]
