@@ -18,6 +18,30 @@ class LightningTrainer(pt.LightningModule):
     def _model_forward(self, batch):
         pass
 
+    def init_experiment_paths(self):
+
+        self.experiment_parameters_path = utils.path_exists(os.path.join(utils.output_path, 'parameters'), True)
+        self.experiment_log_filename = os.path.join(utils.output_path, 'experiments.log')
+        self.prediction_path = utils.path_exists(os.path.join(utils.output_path, 'predictions'), True)
+        self.experiment_prediction_filename = os.path.join(self.prediction_path, '{}.xlsx'.format(self.params._experiment_id))
+
+
+    def init_dataset(self):
+
+        self.validation_dataset, self.test_dataset, self.train_dataset = None, None, None
+
+        if self.params.do_learn:
+            self.log.info('Loading Training Set')
+            self.train_dataset = self.dataset_class('train', self.tokenizer)
+            self.validation_dataset = self.dataset_class('validation', self.tokenizer)
+        
+        if self.params.evaluate:
+            if self.params.use_test_dataset:
+                self.test_dataset = self.dataset_class('test', self.tokenizer)
+            else:
+                self.test_dataset = self.dataset_class('validation', self.tokenizer)
+        
+
     def configure_optimizers(self):
 
         optimizer = AdamW(
