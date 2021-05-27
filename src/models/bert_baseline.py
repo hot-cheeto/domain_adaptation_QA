@@ -20,11 +20,6 @@ class QA_Transfomer(LightningTrainer):
         self.init_experiment_paths()
         self.init_dataset()
 
-
-    def loss(self, start_scores, end_scores, start_idx, end_idx):
-        pass
-
-
     def forward(self, inputs):
 
         out = self.transformer(inputs['input_ids'], attention_mask = inputs['attention_mask'])

@@ -1,0 +1,89 @@
+import os
+import sys
+import glob
+import ast
+
+import torch
+import torch.nn as nn
+import torch.multiprocessing
+import pytorch_lightning as pt
+from pytorch_lightning.callbacks import ModelCheckpoint
+import numpy as np
+import random
+
+from arguments import dump_parameters
+from utilities.file_utils import Utils as utils
+
+from models.bert_baseline import QA_Transfomer
+from data.bioasq_dataset import BioASQDataset
+from utilities import metric as M
+
+
+def init_model(params):
+
+    metrics = {'mrr': M.mrr,
+               'r@8': M.recall_at_8}
+
+    metric = {k: v for k, v in metrics.items() if k in set(params.metrics.split())}
+    model = QA_Transfomer(params, BioASQDataset, metric)
+
+    return model
+
+def get_checkpoint(params):
+
+    path = os.path.join(utils.output_path, params.load_checkpoint,
+                        'lightning_logs', 
+                        'version_{}'.format(params.version), 
+                        'checkpoints', 'epoch=19-step=18839.ckpt')
+
+    all_checkpoints = list(glob.glob(os.path.join(path, '*.ckpt')))
+    epoch2path = {int(c.split('/')[-1].split('.')[0].split('=')[1].split('-')[0]): c for c in all_checkpoints}
+
+    return epoch2path
+
+
+def main(params):
+
+    torch.manual_seed(params.random_seed)
+    torch.cuda.manual_seed(params.random_seed)
+    np.random.seed(params.random_seed)
+    random.seed(params.random_seed)
+
+    params_filename = os.path.join(utils.output_path, 'experiment_params.log')
+    experiment_dir = utils.path_exists(os.path.join(utils.output_path, params.experiment_id), True)
+    model = init_model(params)
+
+    if params.load_checkpoint:
+        pass
+        
+        # epoch2path = get_checkpoint(params)
+        # # TODO: fix the checkpoint thing
+        # resume_from_checkpoint = glob.glob(path)[-1]
+
+        # print("Checkpoint: {}".format(resume_from_checkpoint))
+        # checkpoint = torch.load(resume_from_checkpoint)
+        # model.load_state_dict(checkpoint['state_dict'])
+    else:
+        resume_from_checkpoint = None
+
+    if params.metrics:
+        ckpt_metric = 'validation_' + params.metrics.split()[0]
+        checkpoint_callback = ModelCheckpoint(monitor=ckpt_metric, mode='max')
+    else:
+        checkpoint_callback = ModelCheckpoint(monitor='val_loss', mode='min')
+
+
+    trainer = pt.Trainer(default_root_dir=experiment_dir, weights_save_path=experiment_dir,
+                         max_epochs=params.num_epoch, checkpoint_callback=checkpoint_callback,
+                         distributed_backend=backend, gpus=params.gpus)
+
+    if params.do_learn:
+        trainer.fit(model)
+
+    if params.evaluate:
+        trainer.test(model)
+
+
+if __name__ == "__main__":
+    params = dump_parameters()
+    main(params)
