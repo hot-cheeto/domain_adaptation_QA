@@ -10,6 +10,7 @@ from torch.utils.data import DataLoader
 
 from utilities.file_utils import Utils as utils
 from utilities import data_helpers as dh
+from utilities import evaluate as metric_functions
 
 
 class LightningTrainer(pt.LightningModule):
@@ -17,6 +18,9 @@ class LightningTrainer(pt.LightningModule):
     @abc.abstractmethod
     def _model_forward(self, batch):
         pass
+
+    def init_metric_func(self):
+        self.metric = {'f1_score': metric_functions.f1_score, 'em': metric_functions.exact_match_score}
 
     def init_experiment_paths(self):
 
@@ -96,12 +100,11 @@ class LightningTrainer(pt.LightningModule):
 
     def training_step(self, batch, batch_idx):
 
-        encoded_inputs, idx, answer_idx, answer_text = batch
+        input_ids, _, _, _, answer_text, _ = batch
         loss, start_scores, end_scores = self._model_forward(batch)
 
         max_start_scores = torch.argmax(start_scores, dim = 1)
         max_end_scores = torch.argmax(end_scores, dim = 1)
-        input_ids = encoded_inputs['input_ids']
 
         self.log('loss', loss)
         return_dict = {'loss': loss}
@@ -114,12 +117,11 @@ class LightningTrainer(pt.LightningModule):
 
     def validation_step(self, batch, batch_idx):
 
-        encoded_inputs, idx, answer_idx, answer_text = batch
+        input_ids, _, _, _, answer_text, _ = batch
         loss, start_scores, end_scores = self._model_forward(batch)
 
         max_start_scores = torch.argmax(start_scores, dim = 1)
         max_end_scores = torch.argmax(end_scores, dim = 1)
-        input_ids = encoded_inputs['input_ids']
 
         self.log('val_loss', loss.item())
         return_dict = {'val_loss': loss.item()}
@@ -132,17 +134,17 @@ class LightningTrainer(pt.LightningModule):
 
     def test_step(self, batch, batch_idx):
 
-        encoded_inputs, idx, answer_idx, answer_text = batch
-        start_scores, end_scores = self._model_forward(batch, return_loss = False)
+        input_ids, _, answer_span, possible_ans, answer_text, idx = batch
+        _, start_scores, end_scores = self._model_forward(batch)
 
         max_start_scores = torch.argmax(start_scores, dim = 1)
         max_end_scores = torch.argmax(end_scores, dim = 1)
-        input_ids = encoded_inputs['input_ids']
 
         return_dict = {}
 
-        return_dict['gt_answer_span'] = [tuple(-1, -1) if idx < 0  else tuple(idx, idx + len(t) + 1) for idx, t in zip(answer_idx, answer_text)]
+        return_dict['gt_answer_span'] = answer_span
         return_dict['gt_answer_text'] = answer_text
+        return_dict['possible_span'] = possible_ans
         
         return_dict['pred_answer_span'] = [tuple(s, e) for s, e in zip(max_start_scores, max_end_scores)]
         return_dict['pred_answer_text'] = [self.get_decoded_prediction(inp, s, e) for inp, s, e in zip(input_ids, max_start_scores, max_end_scores)]
@@ -159,7 +161,7 @@ class LightningTrainer(pt.LightningModule):
         all_pred_text = [x['pred_answer_text'] for out in outputs for x in out]
 
         for metric_name, metric_func in self.metric.items():
-            metric_out = torch.tensor(metric_func(all_gt_text, all_pred_text))
+            metric_out = torch.tensor(metric_func(all_pred_text, all_gt_text))
             self.log('train_{}'.format(metric_name), metric_out, prog_bar = True)
             
 
@@ -172,13 +174,14 @@ class LightningTrainer(pt.LightningModule):
         all_pred_text = [x['pred_answer_text'] for out in outputs for x in out]
 
         for metric_name, metric_func in self.metric.items():
-            metric_out = torch.tensor(metric_func(all_gt_text, all_pred_text))
+            metric_out = torch.tensor(metric_func(all_pred_text, all_gt_text))
             self.log('validation_{}'.format(metric_name), metric_out, prog_bar = True)
 
     def create_predictions_excel(self, outputs, all_gt_text, all_pred_text):
         
         all_gt_idx = [x['gt_answer_span'] for out in outputs for x in out]
         all_pred_idx = [x['pred_answer_span'] for out in outputs for x in out]
+        all_poss_span = [x['possible_span'] for out in outputs for x in out]
         all_indices = [x['index'] for out in outputs for x in out]
         prediction_metadata = {}
 
@@ -195,6 +198,7 @@ class LightningTrainer(pt.LightningModule):
             prediction_metadata[id_]['gt_answer_text'] = all_gt_text[i]
             prediction_metadata[id_]['pred_answer_text'] = all_pred_text[i]
             prediction_metadata[id_]['context_text'] = sample['context']
+            prediction_metadata[id_]['possible_span'] = all_poss_span
             prediction_metadata[id_]['gt_answer_span'] = '{}-{}'.format(all_gt_idx[i][0], all_gt_idx[i][1]) 
             prediction_metadata[id_]['pred_answer_span'] = '{}-{}'.format(all_pred_idx[i][0], all_pred_idx[i][1])
 
@@ -210,7 +214,7 @@ class LightningTrainer(pt.LightningModule):
         results = {}
 
         for metric_name, metric_func in self.metric.items():
-            metric_out = torch.tensor(metric_func(all_gt_text, all_pred_text))
+            metric_out = torch.tensor(metric_func(all_pred_text, all_gt_text))
             self.log('test_{}'.format(metric_name), metric_out, prog_bar = True)
 
             results[metric_name] = metric_out

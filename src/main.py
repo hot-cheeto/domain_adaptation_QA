@@ -1,7 +1,6 @@
 import os
 import sys
 import glob
-import ast
 
 import torch
 import torch.nn as nn
@@ -14,27 +13,16 @@ import random
 from arguments import dump_parameters
 from utilities.file_utils import Utils as utils
 
-from models.bert_baseline import QA_Transfomer
+from models.qa_transformer import QA_Transfomer
 from data.bioasq_dataset import BioASQDataset
-from utilities import metric as M
 
-
-def init_model(params):
-
-    metrics = {'mrr': M.mrr,
-               'r@8': M.recall_at_8}
-
-    metric = {k: v for k, v in metrics.items() if k in set(params.metrics.split())}
-    model = QA_Transfomer(params, BioASQDataset, metric)
-
-    return model
 
 def get_checkpoint(params):
 
     path = os.path.join(utils.output_path, params.load_checkpoint,
                         'lightning_logs', 
                         'version_{}'.format(params.version), 
-                        'checkpoints', 'epoch=19-step=18839.ckpt')
+                        'checkpoints')
 
     all_checkpoints = list(glob.glob(os.path.join(path, '*.ckpt')))
     epoch2path = {int(c.split('/')[-1].split('.')[0].split('=')[1].split('-')[0]): c for c in all_checkpoints}
@@ -51,18 +39,17 @@ def main(params):
 
     params_filename = os.path.join(utils.output_path, 'experiment_params.log')
     experiment_dir = utils.path_exists(os.path.join(utils.output_path, params.experiment_id), True)
-    model = init_model(params)
+    model = QA_Transfomer(params, BioASQDataset)
 
     if params.load_checkpoint:
-        pass
-        
-        # epoch2path = get_checkpoint(params)
-        # # TODO: fix the checkpoint thing
-        # resume_from_checkpoint = glob.glob(path)[-1]
+        epoch2path = get_checkpoint(params)
+        epoch_keys = sorted(list(epoch2path.keys()))
+        resume_from_checkpoint = epoch2path[epoch_keys[-1]]        
 
-        # print("Checkpoint: {}".format(resume_from_checkpoint))
-        # checkpoint = torch.load(resume_from_checkpoint)
-        # model.load_state_dict(checkpoint['state_dict'])
+        print("Checkpoint: {}".format(resume_from_checkpoint))
+        checkpoint = torch.load(resume_from_checkpoint)
+        model.load_state_dict(checkpoint['state_dict'])
+
     else:
         resume_from_checkpoint = None
 
