@@ -11,14 +11,15 @@ from tqdm import tqdm_notebook
 
 class BioASQDataset(Dataset):
 
-    def __init__(self, dataset_type, tokenizer, max_seq_len =  384, notebook = False):
+    def __init__(self, dataset_type, test_idx = 2, tokenizer = None, max_seq_len =  384, notebook = False):
 
         self.data_path = utils.path_exists(os.path.join(utils.data_path, 'BioASQ'))
         self.dataset_type = dataset_type 
-        self.use_test_dataset = use_test_dataset
         self.notebook = notebook
-        self.max_seq_len = max_seq_len
+        self.max_seq_length= max_seq_len
+        self.test_idx = test_idx
 
+        self.empty = 0
         self.data = self.load_data()
         self.ids = list(self.data.keys())
         self.tokenizer = tokenizer
@@ -26,15 +27,21 @@ class BioASQDataset(Dataset):
 
     def load_data(self):
 
-        files = list(glob.glob(os.path.join(self.data_path, 'BioASQ-{}-*.json'.format(self.dataset_type))))
+        file_type = 'train' if self.dataset_type == 'test-dev' else self.dataset_type
+        files = list(glob.glob(os.path.join(self.data_path, 'BioASQ-{}-*.json'.format(file_type))))
+        files = [files[self.test_idx]] if self.dataset_type == 'test-dev' else files
 
-        golden_files = [] if self.dataset_type == 'train' else {f.split('/')[-1].split('.')[0].split('_')[0].lower() : 
+        if self.dataset_type != 'test-dev':
+            del files[self.test_idx]
+
+
+        golden_files = [] if self.dataset_type == 'train' or self.dataset_type == 'test-dev' else {f.split('/')[-1].split('.')[0].split('_')[0].lower() : 
                         f for f in glob.glob(os.path.join(self.data_path, '*_golden.json'))}
 
         data = {}
 
         for curr_file in files:
-            
+ 
             print('Loading and preprocessing file: {}'.format(curr_file))
             para_data= utils.read_json(path = curr_file)['data'][0]
             pbar = tqdm_notebook if self.notebook else tqdm
@@ -49,6 +56,16 @@ class BioASQDataset(Dataset):
                 
                 for qa in d['qas']:
 
+                    ans = qa['answers'] if 'answers' in qa else id2qa.get(qa['id'].split('_')[0], None)
+
+                    if type(ans) == list:
+                        ans = ans[0]['text']
+                    
+                    # exclude examples that are empty 
+                    if len(qa['question'].split()) < 1 or ans == None or len(ans.split()) < 1 or len(context.split()) < 1:
+                        self.empty += 1
+                        continue
+
                     if qa['id'] in data: continue
                     if len(golden_files) > 0 and qa['id'].split('_')[0] not in id2qa: continue
 
@@ -56,6 +73,7 @@ class BioASQDataset(Dataset):
                     data[qa['id']]['question'] = qa['question']
                     data[qa['id']]['answers'] = qa['answers'] if 'answers' in qa else id2qa.get(qa['id'].split('_')[0], None)
                     data[qa['id']]['context'] = context
+
 
         return data
 
@@ -71,7 +89,7 @@ class BioASQDataset(Dataset):
 
         question, answers, context = qa_sample['question'], qa_sample['answers'], qa_sample['context']
 
-        if self.dataset_type == 'train':
+        if self.dataset_type == 'train' or self.dataset_type == 'test-dev':
             answer_start = answers[0]['answer_start']
             answer_text = answers[0]['text']
         else:
@@ -79,16 +97,23 @@ class BioASQDataset(Dataset):
             answer_text = answers
             answer_start = context.index(answer_text) if answer_text in context else 0
         
-        answer_span = torch.tensor([answer_start, answer_start + len(answer_text)]).long()
-        input_encoded = self.tokenizer.encode_plus(question, context,
-                                                   add_special_tokens = True, 
-                                                   max_length = self.max_seq_length, 
-                                                   pad_to_max_length = True, 
-                                                   truncation = True, )
+        answer_span = tuple([answer_start, answer_start + len(answer_text)])
+       
+        # if i am using a neural network 
+        if self.tokenizer != None:
+            answer_span = torch.tensor([answer_start, answer_start + len(answer_text)]).long()
+            input_encoded = self.tokenizer.encode_plus(question, context,
+                                                    add_special_tokens = True, 
+                                                    max_length = self.max_seq_length, 
+                                                    pad_to_max_length = True, 
+                                                    truncation = True, )
 
 
 
-        return input_encoded['input_ids'], input_encoded['attention_mask'], answer_span, answer_text, index
+            return input_encoded['input_ids'], input_encoded['attention_mask'], answer_span, answer_text, index
+
+        # for analysis
+        return question, answer_text, answer_span, context 
 
 
 
