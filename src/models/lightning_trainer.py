@@ -38,7 +38,7 @@ class LightningTrainer(pt.LightningModule):
         self.validation_dataset, self.test_dataset, self.train_dataset = None, None, None
 
         if self.params.do_learn:
-            self.log.info('Loading Training Set')
+            print('Loading Training Set')
             set_name = 'test-dev' if self.params.oracle else 'train'
             self.train_dataset = self.dataset_class(set_name, tokenizer = self.tokenizer, sanity = self.params.sanity) 
 
@@ -60,7 +60,7 @@ class LightningTrainer(pt.LightningModule):
     def configure_optimizers(self):
 
         optimizer = AdamW(
-            chain(self.parameters(), self.loss.parameters()), lr=self.params.learning_rate)
+            self.parameters(), lr=self.params.learning_rate)
         scheduler = optim.lr_scheduler.CosineAnnealingLR(
             optimizer, T_max=300, eta_min=0.0001)
 
@@ -115,7 +115,8 @@ class LightningTrainer(pt.LightningModule):
 
     def training_step(self, batch, batch_idx):
 
-        input_ids, _, _, _, answer_text, _ = batch
+        # input_ids, _, _, _, answer_text, _ = batch
+        input_ids, _, _, answer_text, _ = batch
         loss, start_scores, end_scores = self._model_forward(batch)
 
         max_start_scores = torch.argmax(start_scores, dim = 1)
@@ -135,14 +136,14 @@ class LightningTrainer(pt.LightningModule):
 
     def validation_step(self, batch, batch_idx):
 
-        input_ids, _, _, _, answer_text, _ = batch
+        input_ids, _, _, answer_text, _ = batch
         loss, start_scores, end_scores = self._model_forward(batch)
 
         max_start_scores = torch.argmax(start_scores, dim = 1)
         max_end_scores = torch.argmax(end_scores, dim = 1)
 
-        self.log('val_loss', loss.item())
-        return_dict = {'val_loss': loss.item()}
+        self.log('val_loss', loss)
+        return_dict = {'val_loss': loss}
 
         # return_dict['gt_answer_text'] = answer_text
         # return_dict['pred_answer_text'] = [self.get_decoded_prediction(inp, s, e) for inp, s, e in zip(input_ids, max_start_scores, max_end_scores)]
@@ -175,7 +176,7 @@ class LightningTrainer(pt.LightningModule):
 
     def training_epoch_end(self, outputs):
 
-        avg_loss = torch.stack([x['loss'] for out in outputs for x in out]).mean()
+        avg_loss = torch.stack([x['loss'] for x in outputs]).mean()
         self.log('train_loss', avg_loss)
 
         # all_gt_text = [x['gt_answer_text'] for out in outputs for x in out]
@@ -191,7 +192,7 @@ class LightningTrainer(pt.LightningModule):
 
     def validation_epoch_end(self, outputs):
 
-        avg_loss = torch.stack([x['val_loss'] for out in outputs for x in out]).mean()
+        avg_loss = torch.stack([x['val_loss'] for x in outputs]).mean()
         self.log('validation_loss', avg_loss)
 
         # all_gt_text = [x['gt_answer_text'] for out in outputs for x in out]
