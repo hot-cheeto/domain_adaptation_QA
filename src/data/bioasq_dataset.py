@@ -12,19 +12,24 @@ from tqdm import tqdm_notebook
 
 class BioASQDataset(Dataset):
 
-    def __init__(self, dataset_type, test_idx = 2, tokenizer = None, oversample = False, max_seq_len =  384, notebook = False):
+    def __init__(self, dataset_type, test_idx = 2, sanity = False, tokenizer = None, oversample = False, max_seq_len =  384, notebook = False):
 
         self.data_path = utils.path_exists(os.path.join(utils.data_path, 'BioASQ'))
         self.dataset_type = dataset_type 
         self.notebook = notebook
         self.max_seq_length= max_seq_len
         self.test_idx = test_idx
+        self.sanity = sanity
 
         self.empty = 0
         self.sub_data, self.sample_ids = {}, []
 
         self.data = self.load_data()
-        self.ids = list(self.data.keys())
+        self.ids = list(self.data.keys()) 
+        
+        if self.sanity:
+          self.ids = self.ids[:10]
+
         self.num_examples = len(self.ids)
         self.tokenizer = tokenizer
 

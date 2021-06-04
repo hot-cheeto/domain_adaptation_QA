@@ -37,16 +37,21 @@ class LightningTrainer(pt.LightningModule):
         if self.params.do_learn:
             self.log.info('Loading Training Set')
             set_name = 'test-dev' if self.params.oracle else 'train'
-            self.train_dataset = self.dataset_class(set_name, tokenizer = self.tokenizer) 
-            self.validation_dataset = self.dataset_class('test-dev', tokenizer = self.tokenizer)
+            self.train_dataset = self.dataset_class(set_name, tokenizer = self.tokenizer, sanity = self.params.sanity) 
 
-
+            if self.params.sanity:
+              self.validation_dataset = self.dataset_class(set_name, tokenizer = self.tokenizer, sanity = self.params.sanity)
+            else:
+              self.validation_dataset = self.dataset_class('test-dev', tokenizer = self.tokenizer)
         
         if self.params.evaluate:
             if self.params.use_test_dataset:
                 self.test_dataset = self.dataset_class('test', tokenizer = self.tokenizer)
             else:
-                self.test_dataset = self.dataset_class('test-dev', tokenizer = self.tokenizer)
+                if self.params.sanity:
+                  self.test_dataset = self.dataset_class(set_name, tokenizer = self.tokenizer, sanity = self.params.sanity)
+                else:
+                  self.test_dataset = self.dataset_class('test-dev', tokenizer = self.tokenizer)
         
 
     def configure_optimizers(self):

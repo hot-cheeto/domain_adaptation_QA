@@ -48,6 +48,8 @@ def dump_parameters():
                         help = 'for the bioasq dataset we have two test set one to obtain metrics and the other one to see what happen in real world example')
     training_group.add_argument("--oracle", default=False, action = 'store_true',
                         help = 'whihc is a bert cheater it trained on the test-dev and evaluate on the test-dev')
+    training_group.add_argument("--gpus", type=int, default = 1, help="Number of GPUs to use for training (default: 1).")
+    training_group.add_argument("--sanity", default=False, action = 'store_true', help="Subsample dataset to a toy set debugging purposes (default: 10)")
 
     # General Model Parameters
     model_general = parser.add_argument_group("General Model Parameters")

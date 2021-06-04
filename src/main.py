@@ -39,7 +39,12 @@ def main(params):
 
     params_filename = os.path.join(utils.output_path, 'experiment_params.log')
     experiment_dir = utils.path_exists(os.path.join(utils.output_path, params.experiment_id), True)
-    model = QA_Transfomer(params, BioASQDataset)
+
+    if params.oversample:
+      #pass multi_dataset class
+      # model = QA_Transfomer(params, BioASQDataset)
+    else:
+      model = QA_Transfomer(params, BioASQDataset)
 
     if params.load_checkpoint:
         epoch2path = get_checkpoint(params)
