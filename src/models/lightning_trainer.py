@@ -36,8 +36,11 @@ class LightningTrainer(pt.LightningModule):
 
         if self.params.do_learn:
             self.log.info('Loading Training Set')
-            self.train_dataset = self.dataset_class('train', self.tokenizer)
+            set_name = 'test-dev' if self.params.oracle else 'train'
+            self.train_dataset = self.dataset_class(set_name, tokenizer = self.tokenizer) 
             self.validation_dataset = self.dataset_class('test-dev', tokenizer = self.tokenizer)
+
+
         
         if self.params.evaluate:
             if self.params.use_test_dataset:

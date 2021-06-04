@@ -46,6 +46,8 @@ def dump_parameters():
                         help = 'the prob when to sample tgt example during training')
     training_group.add_argument("--use_test_set", default=False, action = 'store_true',
                         help = 'for the bioasq dataset we have two test set one to obtain metrics and the other one to see what happen in real world example')
+    training_group.add_argument("--oracle", default=False, action = 'store_true',
+                        help = 'whihc is a bert cheater it trained on the test-dev and evaluate on the test-dev')
 
     # General Model Parameters
     model_general = parser.add_argument_group("General Model Parameters")
