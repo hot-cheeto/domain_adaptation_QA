@@ -12,7 +12,7 @@ from tqdm import tqdm_notebook
 
 class BioASQDataset(Dataset):
 
-    def __init__(self, dataset_type, test_idx = 2, tokenizer = None, max_seq_len =  384, notebook = False):
+    def __init__(self, dataset_type, test_idx = 2, tokenizer = None, oversample = False, max_seq_len =  384, notebook = False):
 
         self.data_path = utils.path_exists(os.path.join(utils.data_path, 'BioASQ'))
         self.dataset_type = dataset_type 
@@ -33,7 +33,6 @@ class BioASQDataset(Dataset):
         self.sample_ids = random.sample(self.ids, 100)
         self.sub_data = {k: v for k, v in self.data.items() if k in self.sample_ids}
         self.num_examples = 100
-
 
 
     def load_data(self):
@@ -94,6 +93,9 @@ class BioASQDataset(Dataset):
 
 
     def __getitem__(self, index):
+
+        if self.oversample and self.do_learn:
+          index = random.sample(range(self.num_examples), 1)[0]
 
         qa_sample = self.data[self.ids[index]]
 
