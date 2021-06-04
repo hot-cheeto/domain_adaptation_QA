@@ -150,6 +150,7 @@ class LightningTrainer(pt.LightningModule):
 
         return_dict['gt_answer_text'] = list(answer_text)
         return_dict['pred_answer_text'] = [self.get_decoded_prediction(inp, s, e) for inp, s, e in zip(input_ids, max_start_scores, max_end_scores)]
+
         
         return return_dict
 
@@ -171,6 +172,7 @@ class LightningTrainer(pt.LightningModule):
         return_dict['pred_answer_span'] = np.array([[s.item(), e.item()] for s, e in zip(max_start_scores, max_end_scores)])
         return_dict['pred_answer_text'] = [self.get_decoded_prediction(inp, s, e) for inp, s, e in zip(input_ids, max_start_scores, max_end_scores)]
         return_dict['indices'] = idx.numpy()
+        import pdb; pdb.set_trace()
         
         return return_dict
 

@@ -6,8 +6,7 @@ from torch.autograd import Function
 
 from utilities.file_utils import Utils as utils
 from models.lightning_trainer import LightningTrainer
-from transformers import AutoConfig, AutoModelForQuestionAnswering
-from transformers import AutoTokenizer
+from transformers import DistilBertTokenizer, DistilBertForQuestionAnswering
 
 class GradientReversalFunction(Function):
     """Code from: https://github.com/jvanvugt/pytorch-domain-adaptation/blob/master/utils.py
@@ -82,9 +81,10 @@ class QA_Transfomer(LightningTrainer):
         self.dann = params.dann
 
         # sometimes huggingface gives me trouble downloading weights directly 
-        self.model_weight_path = utils.path_exists(os.path.join(utils.weight_path , 'bert-base-cased-squad2'))
-        self.tokenizer = AutoTokenizer.from_pretrained(self.model_weight_path, return_token_type_ids = True)
-        self.bert_transfomer = AutoModelForQuestionAnswering.from_pretrained(self.model_weight_path, return_dict = True, output_hidden_states = True) 
+        self.model_weight_path = utils.path_exists(os.path.join(utils.weight_path , 'distilbert-base-uncased'))
+        self.tokenizer = DistilBertTokenizer.from_pretrained(self.model_weight_path, return_token_type_ids = True)
+        # self.bert_transfomer = DistilBertForQuestionAnswering.from_pretrained(self.model_weight_path, return_dict = True, output_hidden_states = True) 
+        self.bert_transfomer = DistilBertForQuestionAnswering.from_pretrained(self.model_weight_path + '-distilled-squad', return_dict = True, output_hidden_states = True) 
         self.ques_cxt_dim = 768
 
         if self.dann:
@@ -109,7 +109,7 @@ class QA_Transfomer(LightningTrainer):
 
     
     def forward(self, input_ids, attention_mask, answer_span, domain_label = None):
-      
+
         out = self.bert_transfomer(input_ids, 
                                    attention_mask = attention_mask, 
                                    start_positions = answer_span[:, 0],  

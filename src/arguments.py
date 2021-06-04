@@ -55,7 +55,7 @@ def dump_parameters():
     model_general = parser.add_argument_group("General Model Parameters")
     model_general.add_argument("--dann", default=False, action = 'store_true', 
                         help="Use DANN")
-    model_general.add_argument("--max_seq_length", default=384, type = int, 
+    model_general.add_argument("--max_seq_length", default=512, type = int, 
                         help="input sequence max length of tokens")
 
 

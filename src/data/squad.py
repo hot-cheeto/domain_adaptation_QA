@@ -11,7 +11,9 @@ class SQuAD(Dataset):
         self.tokenizer = tokenizer
         self.max_seq_length = max_seq_length
 
-        self.data = load_dataset('squad', split = self.dataset_type)
+        set_name = 'train' if sanity else self.dataset_type
+
+        self.data = load_dataset('squad', split = set_name)
         self.number_examples = 10 if sanity else self.data.num_rows 
 
 
@@ -25,7 +27,7 @@ class SQuAD(Dataset):
         
         context = self.data['context'][index]
         question = self.data['question'][index]
-        answer = self.data['answers']
+        answer = self.data['answers'][index]
 
         answer_text = answer['text'][0]
         answer_start = answer['answer_start'][0]
@@ -41,8 +43,12 @@ class SQuAD(Dataset):
                                                     truncation = True, )
 
 
+            input_ids = torch.tensor(input_encoded['input_ids'])
+            attention_mask = torch.tensor(input_encoded['attention_mask'])
 
-            return input_encoded['input_ids'], input_encoded['attention_mask'], answer_span, answer_text, index
+
+
+            return input_ids, attention_mask, answer_span, answer_text, index
 
         # for analysis
         return question, answer_text, answer_span, context 
