@@ -15,6 +15,7 @@ from utilities.file_utils import Utils as utils
 
 from models.qa_transformer import QA_Transfomer
 from data.bioasq_dataset import BioASQDataset
+from data.squad import SQuAD
 
 
 def get_checkpoint(params):
@@ -41,10 +42,14 @@ def main(params):
     experiment_dir = utils.path_exists(os.path.join(utils.output_path, params.experiment_id), True)
 
     if params.oversample:
+      pass
       #pass multi_dataset class
       # model = QA_Transfomer(params, BioASQDataset)
     else:
-      model = QA_Transfomer(params, BioASQDataset)
+      if params.sanity:
+        model = QA_Transfomer(params, SQuAD)
+      else: 
+        model = QA_Transfomer(params, BioASQDataset)
 
     if params.load_checkpoint:
         epoch2path = get_checkpoint(params)
@@ -63,8 +68,9 @@ def main(params):
     checkpoint_callback = ModelCheckpoint(monitor=ckpt_metric, mode='max')
 
     trainer = pt.Trainer(default_root_dir=experiment_dir, weights_save_path=experiment_dir,
-                         max_epochs=params.num_epoch, checkpoint_callback=checkpoint_callback,
-                         distributed_backend=backend, gpus=params.gpus)
+                         max_epochs=params.num_epochs, checkpoint_callback=checkpoint_callback,
+                         gpus=params.gpus)
+                         # distributed_backend=backend, gpus=params.gpus)
 
     if params.do_learn:
         trainer.fit(model)

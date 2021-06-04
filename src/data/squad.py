@@ -12,7 +12,8 @@ class SQuAD(Dataset):
         self.max_seq_length = max_seq_length
 
         self.data = load_dataset('squad', split = self.dataset_type)
-        self.number_examples = 100 if sanity else self.data.num_rows 
+        self.number_examples = 10 if sanity else self.data.num_rows 
+
 
 
     def __len__(self):

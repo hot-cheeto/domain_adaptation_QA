@@ -49,7 +49,7 @@ class LightningTrainer(pt.LightningModule):
                 self.test_dataset = self.dataset_class('test', tokenizer = self.tokenizer)
             else:
                 if self.params.sanity:
-                  self.test_dataset = self.dataset_class(set_name, tokenizer = self.tokenizer, sanity = self.params.sanity)
+                  self.test_dataset = self.dataset_class('train', tokenizer = self.tokenizer, sanity = self.params.sanity)
                 else:
                   self.test_dataset = self.dataset_class('test-dev', tokenizer = self.tokenizer)
         
@@ -97,11 +97,15 @@ class LightningTrainer(pt.LightningModule):
         return data_loader
 
 
-    def get_decoded_prediction(self, input_ids, start_score, end_score):
+    def get_decoded_prediction(self, input_ids, start_score, end_score, return_string = True):
 
 
-        ans_tokens = input_ids[torch.argmax(start_score) : torch.argmax(end_score) + 1]
+        ans_tokens = input_ids[start_score : end_score + 1]
         answer_tokens = self.tokenizer.convert_ids_to_tokens(ans_tokens, skip_special_tokens = True)
+        answer_string = self.tokenizer.convert_tokens_to_string(answer_tokens)
+
+        if return_string:
+          return answer_string
 
         return answer_tokens
 
@@ -142,8 +146,11 @@ class LightningTrainer(pt.LightningModule):
 
     def test_step(self, batch, batch_idx):
 
-        input_ids, _, answer_span, possible_ans, answer_text, idx = batch
+
+        input_ids, _, answer_span, answer_text, idx = batch
         _, start_scores, end_scores = self._model_forward(batch)
+        
+        input_ids = torch.stack(input_ids).reshape((-1, self.params.max_seq_length))
 
         max_start_scores = torch.argmax(start_scores, dim = 1)
         max_end_scores = torch.argmax(end_scores, dim = 1)
@@ -152,12 +159,12 @@ class LightningTrainer(pt.LightningModule):
 
         return_dict['gt_answer_span'] = answer_span
         return_dict['gt_answer_text'] = answer_text
-        return_dict['possible_span'] = possible_ans
         
-        return_dict['pred_answer_span'] = [tuple(s, e) for s, e in zip(max_start_scores, max_end_scores)]
+        return_dict['pred_answer_span'] = [tuple([s, e]) for s, e in zip(max_start_scores, max_end_scores)]
         return_dict['pred_answer_text'] = [self.get_decoded_prediction(inp, s, e) for inp, s, e in zip(input_ids, max_start_scores, max_end_scores)]
         return_dict['indices'] = idx
-
+        
+        import pdb; pdb.set_trace()
         return return_dict
 
     def training_epoch_end(self, outputs):
@@ -193,7 +200,6 @@ class LightningTrainer(pt.LightningModule):
         
         all_gt_idx = [x['gt_answer_span'] for out in outputs for x in out]
         all_pred_idx = [x['pred_answer_span'] for out in outputs for x in out]
-        all_poss_span = [x['possible_span'] for out in outputs for x in out]
         all_indices = [x['index'] for out in outputs for x in out]
         prediction_metadata = {}
 
@@ -210,7 +216,6 @@ class LightningTrainer(pt.LightningModule):
             prediction_metadata[id_]['gt_answer_text'] = all_gt_text[i]
             prediction_metadata[id_]['pred_answer_text'] = all_pred_text[i]
             prediction_metadata[id_]['context_text'] = sample['context']
-            prediction_metadata[id_]['possible_span'] = all_poss_span
             prediction_metadata[id_]['gt_answer_span'] = '{}-{}'.format(all_gt_idx[i][0], all_gt_idx[i][1]) 
             prediction_metadata[id_]['pred_answer_span'] = '{}-{}'.format(all_pred_idx[i][0], all_pred_idx[i][1])
 

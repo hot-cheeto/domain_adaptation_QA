@@ -38,13 +38,13 @@ def dump_parameters():
                         help="Evaluate the Network on the test dataset.")
     training_group.add_argument("--evaluate_every", default=1, type=int,
                         help="Evaluate model on validation dataset every N epochs.")
-    training_group.add_argument("--seed", default=43, type=int,
+    training_group.add_argument("--random_seed", default=43, type=int,
                         help="Seed to use for experiments. Good for reproducing results.")
     training_group.add_argument("--oversample", default=False, action = 'store_true',
                         help="oversample tgt dataset with joint training with teh src dataset")
     training_group.add_argument("--tgt_oversample_prob", default=0.7, type=float,
                         help = 'the prob when to sample tgt example during training')
-    training_group.add_argument("--use_test_set", default=False, action = 'store_true',
+    training_group.add_argument("--use_test_dataset", default=False, action = 'store_true',
                         help = 'for the bioasq dataset we have two test set one to obtain metrics and the other one to see what happen in real world example')
     training_group.add_argument("--oracle", default=False, action = 'store_true',
                         help = 'whihc is a bert cheater it trained on the test-dev and evaluate on the test-dev')

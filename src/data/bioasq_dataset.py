@@ -20,6 +20,7 @@ class BioASQDataset(Dataset):
         self.max_seq_length= max_seq_len
         self.test_idx = test_idx
         self.sanity = sanity
+        self.oversample = oversample
 
         self.empty = 0
         self.sub_data, self.sample_ids = {}, []

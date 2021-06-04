@@ -1,4 +1,4 @@
-
+import os
 import torch 
 import torch.nn.functional as F
 import torch.nn as nn
@@ -75,16 +75,17 @@ class QA_Transfomer(LightningTrainer):
 
     def __init__(self, params, dataset):
 
+        super(QA_Transfomer, self).__init__()
         self.params = params
         self.dataset_class = dataset
 
         self.dann = params.dann
 
         # sometimes huggingface gives me trouble downloading weights directly 
-        self.model_weight_path = utils.path_exists(os.path.join(utils.weight_path , self.model_weight_name))
+        self.model_weight_path = utils.path_exists(os.path.join(utils.weight_path , 'bert-base-uncased'))
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_weight_path, return_token_type_ids = True)
-        self.transfomer = AutoModelForQuestiongAnswering.from_pretrained(self.model_weight_path, return_dict = True, output_hidden_states = True) 
-        self.ques_cxt_dim = 100
+        self.bert_transfomer = AutoModelForQuestionAnswering.from_pretrained(self.model_weight_path, return_dict = True, output_hidden_states = True) 
+        self.ques_cxt_dim = 768
 
         if self.dann:
           
@@ -108,13 +109,13 @@ class QA_Transfomer(LightningTrainer):
 
     
     def forward(self, input_ids, attention_mask, answer_span, domain_label = None):
-       
-        out = self.transformer(input_ids, attention_mask = attention_mask, start_positions = answer_span[:, 0],  end_positions = answer_span[:,1]) 
+      
+        out = self.bert_transfomer(input_ids, attention_mask = attention_mask, start_positions = answer_span[:, 0],  end_positions = answer_span[:,1]) 
         loss, start_scores, end_scores = out[0], out[1], out[2]
 
         if self.dann and domain_label != None:
 
-            embedded_ques_cxt = out['last_hidden_state'][:, 0, :]
+            embedded_ques_cxt = out[-1][-1][:, 0, :]
             domain_out = self.grad_rev(embedded_ques_cxt, self.lambda_scheduler())
             domain_out = self.domain_mlp(domain_out)
             domain_out = self.sigmoid(domain_out).squeeze()
@@ -131,10 +132,14 @@ class QA_Transfomer(LightningTrainer):
 
         if self.dann:
           input_ids, attention_mask, answer_span, answer_text, domain_label, _ = batch
+
         else:
           input_ids, attention_mask, answer_span, answer_text, _ = batch
           domain_label = None
         
+        input_ids = torch.stack(input_ids).reshape((-1, self.params.max_seq_length))
+        attention_mask = torch.stack(attention_mask).reshape((-1, self.params.max_seq_length))
+
         loss, start_scores, end_scores = self.forward(input_ids, attention_mask, answer_span, domain_label)
 
         return loss, start_scores, end_scores
