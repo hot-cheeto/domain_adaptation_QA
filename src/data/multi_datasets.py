@@ -37,9 +37,10 @@ class Multi_Dataset(Dataset):
     def __getitem__(self, index):
 
       if random.random() < self.target_prob_sample and self.dataset_type == 'train':
-        return self.target_dataset[index]
+        
+        return self.target_dataset[index], 0
 
-      return self.scr_dataset[index]
+      return self.scr_dataset[index], 1
 
 
 
