@@ -28,17 +28,24 @@ def normalize_answer(s):
 
 
 def f1_score(prediction, ground_truth):
-    prediction_tokens = normalize_answer(prediction).split()
-    ground_truth_tokens = normalize_answer(ground_truth).split()
-    common = Counter(prediction_tokens) & Counter(ground_truth_tokens)
-    num_same = sum(common.values())
-    if num_same == 0:
-        return 0
-    precision = 1.0 * num_same / len(prediction_tokens)
-    recall = 1.0 * num_same / len(ground_truth_tokens)
-    f1 = (2 * precision * recall) / (precision + recall)
-    return f1
 
+    f1 = 0 
+    total = len(prediction)
+
+    for i in range(len(prediction)):
+        prediction_tokens = normalize_answer(prediction[i]).split()
+        ground_truth_tokens = normalize_answer(ground_truth[i]).split()
+        common = Counter(prediction_tokens) & Counter(ground_truth_tokens)
+        num_same = sum(common.values())
+        if num_same == 0: continue
+        precision = 1.0 * num_same / len(prediction_tokens)
+        recall = 1.0 * num_same / len(ground_truth_tokens)
+        f1 += (2 * precision * recall) / (precision + recall)
+
+    
+    final_f1 = f1 / total
+
+    return final_f1
 
 def exact_match_score(prediction, ground_truth):
     return (normalize_answer(prediction) == normalize_answer(ground_truth))

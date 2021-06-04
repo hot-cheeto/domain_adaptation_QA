@@ -1,6 +1,9 @@
 import os
 import random
 from collections import defaultdict
+from tqdm import tqdm 
+from tqdm import tqdm_notebook
+import pandas as pd
 
 import string
 import itertools
@@ -10,6 +13,13 @@ import time
 import nltk
 import numpy as np
 
+def display_attention_context(attention, context_tokens):
+    template = '<html><body><span style=\"background-color: rgba(0, 255, 0, {});\">{}</font></span></body></html>'
+    text = ''
+    for score, token in zip(attention, context_tokens):
+        text += template.format(score, token) + ' '
+
+    return text
 
 def dict2string(dictionary, title):
     message = '\n\t'+title+'\n'

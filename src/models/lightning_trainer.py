@@ -7,6 +7,8 @@ import torch.optim as optim
 import pytorch_lightning as pt
 from transformers import AdamW
 from torch.utils.data import DataLoader
+import numpy as np
+from tqdm import tqdm
 
 from utilities.file_utils import Utils as utils
 from utilities import data_helpers as dh
@@ -20,7 +22,8 @@ class LightningTrainer(pt.LightningModule):
         pass
 
     def init_metric_func(self):
-        self.metric = {'f1_score': metric_functions.f1_score, 'em': metric_functions.exact_match_score}
+        self.metric = {'f1_score': metric_functions.f1_score}
+        # self.metric = {'f1_score': metric_functions.f1_score, 'em': metric_functions.exact_match_score}
 
     def init_experiment_paths(self):
 
@@ -121,7 +124,10 @@ class LightningTrainer(pt.LightningModule):
         self.log('loss', loss)
         return_dict = {'loss': loss}
 
-        return_dict['gt_answer_text'] = answer_text
+        # return_dict['gt_answer_text'] = answer_text
+        # return_dict['pred_answer_text'] = [self.get_decoded_prediction(inp, s, e) for inp, s, e in zip(input_ids, max_start_scores, max_end_scores)]
+
+        return_dict['gt_answer_text'] = list(answer_text)
         return_dict['pred_answer_text'] = [self.get_decoded_prediction(inp, s, e) for inp, s, e in zip(input_ids, max_start_scores, max_end_scores)]
 
         return return_dict
@@ -138,9 +144,12 @@ class LightningTrainer(pt.LightningModule):
         self.log('val_loss', loss.item())
         return_dict = {'val_loss': loss.item()}
 
-        return_dict['gt_answer_text'] = answer_text
-        return_dict['pred_answer_text'] = [self.get_decoded_prediction(inp, s, e) for inp, s, e in zip(input_ids, max_start_scores, max_end_scores)]
+        # return_dict['gt_answer_text'] = answer_text
+        # return_dict['pred_answer_text'] = [self.get_decoded_prediction(inp, s, e) for inp, s, e in zip(input_ids, max_start_scores, max_end_scores)]
 
+        return_dict['gt_answer_text'] = list(answer_text)
+        return_dict['pred_answer_text'] = [self.get_decoded_prediction(inp, s, e) for inp, s, e in zip(input_ids, max_start_scores, max_end_scores)]
+        
         return return_dict
 
 
@@ -150,21 +159,18 @@ class LightningTrainer(pt.LightningModule):
         input_ids, _, answer_span, answer_text, idx = batch
         _, start_scores, end_scores = self._model_forward(batch)
         
-        input_ids = torch.stack(input_ids).reshape((-1, self.params.max_seq_length))
-
         max_start_scores = torch.argmax(start_scores, dim = 1)
         max_end_scores = torch.argmax(end_scores, dim = 1)
 
         return_dict = {}
 
-        return_dict['gt_answer_span'] = answer_span
-        return_dict['gt_answer_text'] = answer_text
+        return_dict['gt_answer_span'] = answer_span.numpy()
+        return_dict['gt_answer_text'] = list(answer_text)
         
-        return_dict['pred_answer_span'] = [tuple([s, e]) for s, e in zip(max_start_scores, max_end_scores)]
+        return_dict['pred_answer_span'] = np.array([[s.item(), e.item()] for s, e in zip(max_start_scores, max_end_scores)])
         return_dict['pred_answer_text'] = [self.get_decoded_prediction(inp, s, e) for inp, s, e in zip(input_ids, max_start_scores, max_end_scores)]
-        return_dict['indices'] = idx
+        return_dict['indices'] = idx.numpy()
         
-        import pdb; pdb.set_trace()
         return return_dict
 
     def training_epoch_end(self, outputs):
@@ -172,8 +178,11 @@ class LightningTrainer(pt.LightningModule):
         avg_loss = torch.stack([x['loss'] for out in outputs for x in out]).mean()
         self.log('train_loss', avg_loss)
 
-        all_gt_text = [x['gt_answer_text'] for out in outputs for x in out]
-        all_pred_text = [x['pred_answer_text'] for out in outputs for x in out]
+        # all_gt_text = [x['gt_answer_text'] for out in outputs for x in out]
+        # all_pred_text = [x['pred_answer_text'] for out in outputs for x in out]
+
+        all_gt_text = [x for out in outputs for x in out['gt_answer_text']]
+        all_pred_text = [x for out in outputs for x in out['pred_answer_text']]
 
         for metric_name, metric_func in self.metric.items():
             metric_out = torch.tensor(metric_func(all_pred_text, all_gt_text))
@@ -185,8 +194,11 @@ class LightningTrainer(pt.LightningModule):
         avg_loss = torch.stack([x['val_loss'] for out in outputs for x in out]).mean()
         self.log('validation_loss', avg_loss)
 
-        all_gt_text = [x['gt_answer_text'] for out in outputs for x in out]
-        all_pred_text = [x['pred_answer_text'] for out in outputs for x in out]
+        # all_gt_text = [x['gt_answer_text'] for out in outputs for x in out]
+        # all_pred_text = [x['pred_answer_text'] for out in outputs for x in out]
+        
+        all_gt_text = [x for out in outputs for x in out['gt_answer_text']]
+        all_pred_text = [x for out in outputs for x in out['pred_answer_text']]
 
         for metric_name, metric_func in self.metric.items():
             metric_out = torch.tensor(metric_func(all_pred_text, all_gt_text))
@@ -194,23 +206,29 @@ class LightningTrainer(pt.LightningModule):
 
 
         # select at random another set of data for next epoch
-        self.validation_dataset.resample_data()
+        # self.validation_dataset.resample_data()
 
     def create_predictions_excel(self, outputs, all_gt_text, all_pred_text):
         
-        all_gt_idx = [x['gt_answer_span'] for out in outputs for x in out]
-        all_pred_idx = [x['pred_answer_span'] for out in outputs for x in out]
-        all_indices = [x['index'] for out in outputs for x in out]
+        all_gt_idx = np.array([x for out in outputs for x in out['gt_answer_span']])
+        all_pred_idx = np.array([ x for out in outputs for x in out['pred_answer_span'] ])
+        all_indices = [ x for out in outputs for x in out['indices']]
+
         prediction_metadata = {}
 
         for i in range(len(all_indices)):
 
-            id_ = self.test_dataset.ids[i]
+            try:
+                id_ = self.test_dataset.ids[i]
+                sample = self.test_dataset.data[id_]
+            except:
+                id_ = all_indices[i]
+                sample = {'context': self.test_dataset.data['context'][id_], 
+                          'question': self.test_dataset.data['question'][id_]}
 
             if id_ not in prediction_metadata:
                 prediction_metadata[id_] = {}
 
-            sample = self.test_dataset.data[id_]
             prediction_metadata[id_]['id'] = id_
             prediction_metadata[id_]['question'] = sample['question']
             prediction_metadata[id_]['gt_answer_text'] = all_gt_text[i]
@@ -219,22 +237,24 @@ class LightningTrainer(pt.LightningModule):
             prediction_metadata[id_]['gt_answer_span'] = '{}-{}'.format(all_gt_idx[i][0], all_gt_idx[i][1]) 
             prediction_metadata[id_]['pred_answer_span'] = '{}-{}'.format(all_pred_idx[i][0], all_pred_idx[i][1])
 
+
         df = dh.dict2dataframe(prediction_metadata)
         df.to_excel(self.experiment_prediction_filename)
 
              
     def test_epoch_end(self, outputs):
 
-        all_gt_text = [x['gt_answer_text'] for out in outputs for x in out]
-        all_pred_text = [x['pred_answer_text'] for out in outputs for x in out]
+        all_gt_text = [x for out in outputs for x in out['gt_answer_text']]
+        all_pred_text = [x for out in outputs for x in out['pred_answer_text']]
 
         results = {}
+
 
         for metric_name, metric_func in self.metric.items():
             metric_out = torch.tensor(metric_func(all_pred_text, all_gt_text))
             self.log('test_{}'.format(metric_name), metric_out, prog_bar = True)
 
-            results[metric_name] = metric_out
+            results[metric_name] = metric_out.item()
 
         results_string = dh.dict2string(results, '{} version {}'.format(self.params.experiment_id, self.logger.version))
         mode = 'a' if os.path.exists(self.experiment_log_filename) else 'w'
@@ -244,7 +264,7 @@ class LightningTrainer(pt.LightningModule):
 
         # print(results_string)
 
-        if self.params.create_predictions_file:
+        if self.params.create_prediction_file:
             self.create_predictions_excel(outputs, all_gt_text, all_pred_text)
 
 
