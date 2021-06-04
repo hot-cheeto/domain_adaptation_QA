@@ -2,6 +2,7 @@ import os
 import torch
 import numpy as np
 import glob
+import random
 
 from torch.utils.data.dataset import Dataset
 from utilities.file_utils import Utils as utils
@@ -20,9 +21,19 @@ class BioASQDataset(Dataset):
         self.test_idx = test_idx
 
         self.empty = 0
+        self.sub_data, self.sample_ids = {}, []
+
         self.data = self.load_data()
         self.ids = list(self.data.keys())
+        self.num_examples = len(self.ids)
         self.tokenizer = tokenizer
+
+
+    def resample_data(self):
+        self.sample_ids = random.sample(self.ids, 100)
+        self.sub_data = {k: v for k, v in self.data.items() if k in self.sample_ids}
+        self.num_examples = 100
+
 
 
     def load_data(self):
@@ -79,8 +90,7 @@ class BioASQDataset(Dataset):
 
 
     def __len__(self):
-
-        return len(self.ids)
+        return self.num_examples
 
 
     def __getitem__(self, index):
