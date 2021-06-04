@@ -44,7 +44,8 @@ def main(params):
     if params.load_checkpoint:
         epoch2path = get_checkpoint(params)
         epoch_keys = sorted(list(epoch2path.keys()))
-        resume_from_checkpoint = epoch2path[epoch_keys[-1]]        
+        epoch_key = -1 if self.params.epoch_key not in epoch2path else self.params.epoch_key
+        resume_from_checkpoint = epoch2path[epoch_key]        
 
         print("Checkpoint: {}".format(resume_from_checkpoint))
         checkpoint = torch.load(resume_from_checkpoint)
@@ -53,12 +54,8 @@ def main(params):
     else:
         resume_from_checkpoint = None
 
-    if params.metrics:
-        ckpt_metric = 'validation_' + params.metrics.split()[0]
-        checkpoint_callback = ModelCheckpoint(monitor=ckpt_metric, mode='max')
-    else:
-        checkpoint_callback = ModelCheckpoint(monitor='val_loss', mode='min')
-
+    ckpt_metric = 'validation_f1_score' 
+    checkpoint_callback = ModelCheckpoint(monitor=ckpt_metric, mode='max')
 
     trainer = pt.Trainer(default_root_dir=experiment_dir, weights_save_path=experiment_dir,
                          max_epochs=params.num_epoch, checkpoint_callback=checkpoint_callback,

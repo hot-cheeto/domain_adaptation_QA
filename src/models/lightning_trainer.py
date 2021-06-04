@@ -27,7 +27,7 @@ class LightningTrainer(pt.LightningModule):
         self.experiment_parameters_path = utils.path_exists(os.path.join(utils.output_path, 'parameters'), True)
         self.experiment_log_filename = os.path.join(utils.output_path, 'experiments.log')
         self.prediction_path = utils.path_exists(os.path.join(utils.output_path, 'predictions'), True)
-        self.experiment_prediction_filename = os.path.join(self.prediction_path, '{}.xlsx'.format(self.params._experiment_id))
+        self.experiment_prediction_filename = os.path.join(self.prediction_path, '{}.xlsx'.format(self.params.experiment_id))
 
 
     def init_dataset(self):
@@ -37,13 +37,13 @@ class LightningTrainer(pt.LightningModule):
         if self.params.do_learn:
             self.log.info('Loading Training Set')
             self.train_dataset = self.dataset_class('train', self.tokenizer)
-            self.validation_dataset = self.dataset_class('validation', self.tokenizer)
+            self.validation_dataset = self.dataset_class('test-dev', tokenizer = self.tokenizer)
         
         if self.params.evaluate:
             if self.params.use_test_dataset:
-                self.test_dataset = self.dataset_class('test', self.tokenizer)
+                self.test_dataset = self.dataset_class('test', tokenizer = self.tokenizer)
             else:
-                self.test_dataset = self.dataset_class('validation', self.tokenizer)
+                self.test_dataset = self.dataset_class('test-dev', tokenizer = self.tokenizer)
         
 
     def configure_optimizers(self):
@@ -176,6 +176,10 @@ class LightningTrainer(pt.LightningModule):
         for metric_name, metric_func in self.metric.items():
             metric_out = torch.tensor(metric_func(all_pred_text, all_gt_text))
             self.log('validation_{}'.format(metric_name), metric_out, prog_bar = True)
+
+
+        # select at random another set of data for next epoch
+        self.validation_dataset.resample_data()
 
     def create_predictions_excel(self, outputs, all_gt_text, all_pred_text):
         
