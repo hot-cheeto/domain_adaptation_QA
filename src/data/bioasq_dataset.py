@@ -126,9 +126,13 @@ class BioASQDataset(Dataset):
                                                     pad_to_max_length = True, 
                                                     truncation = True, )
 
+            input_ids = torch.tensor(input_encoded['input_ids'])
+            attention_mask = torch.tensor(input_encoded['attention_mask'])
 
 
-            return input_encoded['input_ids'], input_encoded['attention_mask'], answer_span, answer_text, index
+
+            return input_ids, attention_mask, answer_span, answer_text, index
+
 
         # for analysis
         return question, answer_text, answer_span, context 
