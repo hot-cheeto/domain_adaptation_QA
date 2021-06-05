@@ -2,6 +2,9 @@ import torch
 from torch.utils.data.dataset import Dataset
 from datasets import load_dataset
 
+import ssl
+ssl._create_default_https_context = ssl._create_unverified_context
+
 class SQuAD(Dataset):
 
     def __init__(self, dataset_type, tokenizer, sanity = False, max_seq_length = 384, notebook = False):
